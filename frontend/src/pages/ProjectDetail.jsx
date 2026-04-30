@@ -2,12 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, UserPlus } from 'lucide-react';
+import { Plus, Trash2} from 'lucide-react';
 
 const STATUSES = ['todo', 'inprogress', 'done'];
 const LABELS = { todo: 'To Do', inprogress: 'In Progress', done: 'Done' };
-const COLORS = { todo: '#64748b', inprogress: '#38bdf8', done: '#4ade80' };
-const PRIORITY_COLORS = { low: '#4ade80', medium: '#fbbf24', high: '#f87171' };
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -15,7 +13,6 @@ export default function ProjectDetail() {
   const [project, setProject] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [showTask, setShowTask] = useState(false);
-  const [showMember, setShowMember] = useState(false);
   const [memberEmail, setMemberEmail] = useState('');
   const [form, setForm] = useState({
     title: '',
@@ -94,21 +91,6 @@ export default function ProjectDetail() {
       toast.error('Failed');
     }
   };
-
-  const addMember = async () => {
-    if (!memberEmail) return;
-
-    try {
-      await api.post(`/projects/${id}/members`, { email: memberEmail });
-      toast.success('Member added');
-      setMemberEmail('');
-      setShowMember(false);
-      loadProject();
-    } catch (err) {
-      toast.error(err.response?.data?.msg || 'Failed');
-    }
-  };
-
   const removeMember = async (uid) => {
     try {
       await api.delete(`/projects/${id}/members/${uid}`);
