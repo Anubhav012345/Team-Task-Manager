@@ -13,7 +13,6 @@ export default function ProjectDetail() {
   const [project, setProject] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [showTask, setShowTask] = useState(false);
-  const [memberEmail, setMemberEmail] = useState('');
   const [form, setForm] = useState({
     title: '',
     description: '',
