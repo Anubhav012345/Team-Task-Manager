@@ -4,24 +4,37 @@ const Task = require('../models/Task');
 const ProjectMember = require('../models/ProjectMember');
 const User = require('../models/User');
 
+// =======================
+// HELPER: CHECK ACCESS
+// =======================
 const checkAccess = async (userId, projectId) => {
-  return await ProjectMember.findOne({ where: { userId, projectId } });
+  return await ProjectMember.findOne({
+    where: {
+      userId: Number(userId),
+      projectId: Number(projectId)
+    }
+  });
 };
-
-
 
 // =======================
 // CREATE TASK (ADMIN ONLY)
 // =======================
 router.post('/', auth, async (req, res) => {
-  const { title, description, dueDate, priority, projectId, assignedTo } = req.body;
-
-  if (!title || !projectId) {
-    return res.status(400).json({ msg: 'Title and projectId required' });
-  }
-
   try {
-    const m = await checkAccess(req.user.id, projectId);
+    let { title, description, dueDate, priority, projectId, assignedTo } = req.body;
+
+    // 🔥 SAFETY FIXES
+    projectId = Number(projectId);
+    if (assignedTo) assignedTo = Number(assignedTo);
+
+    if (!title || !projectId) {
+      return res.status(400).json({ msg: 'Title and projectId required' });
+    }
+
+    // 🔥 SAFE USER ID EXTRACTION
+    const userId = req.user.id || req.user.user?.id;
+
+    const m = await checkAccess(userId, projectId);
 
     if (!m || m.role !== 'admin') {
       return res.status(403).json({ msg: 'Admin only' });
@@ -33,35 +46,36 @@ router.post('/', auth, async (req, res) => {
       dueDate: dueDate || null,
       priority: priority || 'medium',
       projectId,
-      assignedTo: assignedTo || null,   // 🔥 FIX
-      createdBy: req.user.id
+      assignedTo: assignedTo || null,
+      createdBy: userId
     });
 
     res.json(task);
 
   } catch (err) {
-    console.error('🔥 TASK CREATE ERROR:', err);   // 🔥 DEBUG
-    res.status(500).json({ msg: err.message });    // 🔥 REAL ERROR
+    console.error('🔥 TASK CREATE ERROR:', err);
+    res.status(500).json({ msg: err.message });
   }
 });
-
-
 
 // =======================
 // GET TASKS FOR PROJECT
 // =======================
 router.get('/project/:projectId', auth, async (req, res) => {
   try {
-    const m = await checkAccess(req.user.id, req.params.projectId);
+    const projectId = Number(req.params.projectId);
+    const userId = req.user.id || req.user.user?.id;
+
+    const m = await checkAccess(userId, projectId);
 
     if (!m) {
       return res.status(403).json({ msg: 'Access denied' });
     }
 
-    const where = { projectId: req.params.projectId };
+    const where = { projectId };
 
     if (m.role === 'member') {
-      where.assignedTo = req.user.id;
+      where.assignedTo = userId;
     }
 
     const tasks = await Task.findAll({
@@ -72,7 +86,8 @@ router.get('/project/:projectId', auth, async (req, res) => {
           as: 'assignee',
           attributes: ['id', 'name', 'email']
         }
-      ]
+      ],
+      order: [['createdAt', 'DESC']]
     });
 
     res.json(tasks);
@@ -83,32 +98,32 @@ router.get('/project/:projectId', auth, async (req, res) => {
   }
 });
 
-
-
 // =======================
 // UPDATE TASK STATUS
 // =======================
 router.patch('/:id/status', auth, async (req, res) => {
-  const { status } = req.body;
-
-  if (!['todo', 'inprogress', 'done'].includes(status)) {
-    return res.status(400).json({ msg: 'Invalid status' });
-  }
-
   try {
-    const task = await Task.findByPk(req.params.id);
+    const { status } = req.body;
+    const taskId = Number(req.params.id);
+    const userId = req.user.id || req.user.user?.id;
+
+    if (!['todo', 'inprogress', 'done'].includes(status)) {
+      return res.status(400).json({ msg: 'Invalid status' });
+    }
+
+    const task = await Task.findByPk(taskId);
 
     if (!task) {
       return res.status(404).json({ msg: 'Task not found' });
     }
 
-    const m = await checkAccess(req.user.id, task.projectId);
+    const m = await checkAccess(userId, task.projectId);
 
     if (!m) {
       return res.status(403).json({ msg: 'Access denied' });
     }
 
-    if (m.role === 'member' && task.assignedTo !== req.user.id) {
+    if (m.role === 'member' && task.assignedTo !== userId) {
       return res.status(403).json({ msg: 'Not your task' });
     }
 
@@ -122,20 +137,21 @@ router.patch('/:id/status', auth, async (req, res) => {
   }
 });
 
-
-
 // =======================
 // UPDATE FULL TASK (ADMIN)
 // =======================
 router.put('/:id', auth, async (req, res) => {
   try {
-    const task = await Task.findByPk(req.params.id);
+    const taskId = Number(req.params.id);
+    const userId = req.user.id || req.user.user?.id;
+
+    const task = await Task.findByPk(taskId);
 
     if (!task) {
       return res.status(404).json({ msg: 'Task not found' });
     }
 
-    const m = await checkAccess(req.user.id, task.projectId);
+    const m = await checkAccess(userId, task.projectId);
 
     if (!m || m.role !== 'admin') {
       return res.status(403).json({ msg: 'Admin only' });
@@ -151,20 +167,21 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-
-
 // =======================
 // DELETE TASK (ADMIN)
 // =======================
 router.delete('/:id', auth, async (req, res) => {
   try {
-    const task = await Task.findByPk(req.params.id);
+    const taskId = Number(req.params.id);
+    const userId = req.user.id || req.user.user?.id;
+
+    const task = await Task.findByPk(taskId);
 
     if (!task) {
       return res.status(404).json({ msg: 'Task not found' });
     }
 
-    const m = await checkAccess(req.user.id, task.projectId);
+    const m = await checkAccess(userId, task.projectId);
 
     if (!m || m.role !== 'admin') {
       return res.status(403).json({ msg: 'Admin only' });
@@ -179,6 +196,5 @@ router.delete('/:id', auth, async (req, res) => {
     res.status(500).json({ msg: err.message });
   }
 });
-
 
 module.exports = router;
