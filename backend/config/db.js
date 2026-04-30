@@ -1,6 +1,13 @@
 const { Sequelize } = require('sequelize');
 
-const sequelize = new Sequelize(process.env.DATABASE_URL, {
+const DATABASE_URL = process.env.DATABASE_URL;
+
+if (!DATABASE_URL) {
+  console.error("❌ DATABASE_URL is missing");
+  process.exit(1);
+}
+
+const sequelize = new Sequelize(DATABASE_URL, {
   dialect: 'mysql',
   logging: false,
 });
