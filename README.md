@@ -1,6 +1,6 @@
 # 🚀 Project Title
 
-> Short one-line description of your project (e.g., A full-stack project management system with authentication and role-based access)
+> A full-stack project management system with authentication and role-based access
 
 ---
 
